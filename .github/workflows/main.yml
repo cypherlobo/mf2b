@@ -9,7 +9,7 @@ permissions:
   contents: write  
 
 env:
-  MF2B_VERSION: 1.0  # Changez cette variable pour mettre à jour la version
+  MF2B_VERSION: 1.0.0  # Changez cette variable pour mettre à jour la version
 
 jobs:
   build-and-release:
