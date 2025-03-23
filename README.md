@@ -1,5 +1,6 @@
 # MF2B - Mini Fail 2 Ban
-
+[![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=102)](https://github.com/cypherlobo?tab=repositories)
+[Version : 1.0]
 MF2B est un script bash conçu pour surveiller les fichiers de logs système, détecter les tentatives d'authentification échouées, et bannir automatiquement les adresses IP suspectes en utilisant nftables.
 
 ![mf2b](https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/mf2b.png)
@@ -45,11 +46,50 @@ Options :
 - Rsyslogs
 - Privilèges root pour l'exécution
 
-## Installation
+## Installation Automatique 
 
-1. Placez le script dans `/usr/local/bin/mf2b`
-2. Rendez-le exécutable : `chmod +x /usr/local/bin/mf2b`
-3. Assurez-vous que les dossiers et fichiers nécessaires existent et sont accessibles
+1. Recuperer le paquet `mf2b-vX.Y.deb` dans les [Releases](https://github.com/cypherlobo/mf2b/releases)
+2. Puis executer l'install du paquet:
+```sh
+sudo dpkg -i mf2b.*.deb
+```
+3. Modifier les valeur comme vous le souhaitez.
+4. Activer le service et le demarrer avec cette commande:
+```sh
+sudo systemctl enable --now mf2b
+```
+5. Verifier le status du mf2b :
+```sh
+sudo systemctl status mf2b
+```
+
+## Installation Manuelle
+1. Recuperer le repository:
+```sh
+git clone https://github.com/cypherlobo/mf2b.git
+```
+2. Effacer le fichier README.MD et le dossier assets:
+```sh
+rm -r mf2b/README.md mf2b/assets/
+```
+3.Puis compiler le paquet:
+```sh
+sudo dpkg-deb build mf2b
+```
+4. Puis executer l'install du paquet:
+```sh
+sudo dpkg -i mf2b.*.deb
+```
+
+5. Modifier les valeur comme vous le souhaitez.
+6.  Activer le service et le demarrer avec cette commande:
+```sh
+sudo systemctl enable --now mf2b
+```
+7. Verifier le status du mf2b :
+```sh
+sudo systemctl status mf2b
+```
 
 ## Fonctionnement
 
@@ -63,6 +103,10 @@ Le script surveille en continu les fichiers de logs spécifiés. Lorsqu'une tent
 ## Logs
 
 Les bannissements sont enregistrés dans le fichier spécifié par `BAN_LOG`.
+
+## Troubleshooting
+- SI pour une raison la structure de base de nftables est cassé vous pouvez la reconstruire avec la flag : `-n, --nftables-rebuild`.
+- Si l'installation n'est pas abouti c'est que vous ne respectez les prerequis: rsyslog, nftables, whiptail.
 
 ## Avertissement
 
