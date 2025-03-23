@@ -1,0 +1,6 @@
+Package: mf2b
+Version: 1.0
+Architecture: all
+Maintainer: H4X0R-T34M
+Depends: nftables, whiptail, rsyslog, systemd
+Description: Script de monitoring et banning des ip malveillantes.

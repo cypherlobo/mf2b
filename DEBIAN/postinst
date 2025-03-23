@@ -1,0 +1,88 @@
+#!/bin/bash
+set -e
+
+SCRIPT_PATH="/usr/local/bin/mf2b"
+SERVICE_PATH="/etc/systemd/system/mf2b.service"
+
+# Afficher le banner avec whiptail au début de l'installation
+whiptail --msgbox "\n	 ██████   ██████ ███████████  ████████  ███████████ 
+	░░██████ ██████ ░░███░░░░░░█ ███░░░░███░░███░░░░░███
+	 ░███░█████░███  ░███   █ ░ ░░░    ░███ ░███    ░███
+	 ░███░░███ ░███  ░███████      ███████  ░██████████ 
+	 ░███ ░░░  ░███  ░███░░░█     ███░░░░   ░███░░░░░███
+	 ░███      ░███  ░███  ░     ███      █ ░███    ░███
+	 █████     █████ █████      ░██████████ ███████████ 
+	░░░░░     ░░░░░ ░░░░░       ░░░░░░░░░░ ░░░░░░░░░░░  
+	[*] Mini-Fail2Ban by H4X0R-T34M (Yann-Adam)" 20 70
+# Vérifier si Whiptail est installé
+if ! command -v whiptail &>/dev/null; then
+    echo "[!] Whiptail n'est pas installé. Installation en cours..."
+    apt-get update && apt-get install -y whiptail
+fi
+
+# Vérification du dossier mf2b
+if [ -d "/etc/mf2b/" ]; then
+    rm -rf /etc/mf2b/
+    echo "[+] Dossier /etc/mf2b/ supprimé."
+fi
+
+# Demander à l'utilisateur s'il veut configurer mf2b
+if whiptail --yesno "Voulez-vous configurer les paramètres de mf2b maintenant ?" 10 60; then
+
+    # Fonction pour demander des valeurs
+    ask_config() {
+        local prompt="$1"
+        local default="$2"
+        whiptail --inputbox "$prompt" 10 60 "$default" --title "Configuration de mf2b" 3>&1 1>&2 2>&3
+    }
+
+    # Demander les valeurs à l'utilisateur
+    BAN_DURATION=$(ask_config "Durée du bannissement en secondes (ex: 86400 pour 24h) :" "86400")
+    MAX_ATTEMPTS=$(ask_config "Nombre de tentatives avant bannissement :" "5")
+    TIME_WINDOW=$(ask_config "Fenêtre de temps en secondes pour comptabiliser les erreurs (ex: 7200 pour 2h) :" "7200")
+
+    # Mettre à jour le script avec les nouvelles valeurs
+    sed -i "s/^BAN_DURATION=.*/BAN_DURATION=$BAN_DURATION/" "$SCRIPT_PATH"
+    sed -i "s/^MAX_ATTEMPTS=.*/MAX_ATTEMPTS=$MAX_ATTEMPTS/" "$SCRIPT_PATH"
+    sed -i "s/^TIME_WINDOW=.*/TIME_WINDOW=$TIME_WINDOW/" "$SCRIPT_PATH"
+
+    echo "[+] Configuration appliquée."
+else
+    echo "[+] La configuration par défaut sera utilisée."
+fi
+
+# Rendre le script exécutable
+chmod +x "$SCRIPT_PATH"
+
+# Création du fichier mf2b_tracker
+mkdir /etc/mf2b/
+touch /etc/mf2b/mf2b_tracker
+chmod 755 /etc/mf2b/mf2b_tracker
+
+# Création du fichier logs
+touch /var/log/ip_ban.log
+chmod 755 /var/log/ip_ban.log
+
+# Créer le service systemd s'il n'existe pas déjà
+if [ ! -f "$SERVICE_PATH" ]; then
+    cat > "$SERVICE_PATH" <<EOL
+[Unit]
+Description=Mini Fail2Ban - Surveillance des logs et blocage des IPs
+After=network.target
+
+[Service]
+ExecStart=$SCRIPT_PATH
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOL
+fi
+
+# Recharger systemd, activer et démarrer le service
+systemctl daemon-reload
+systemctl enable mf2b
+systemctl restart mf2b
+
+echo "[+] Installation terminée et service activé."

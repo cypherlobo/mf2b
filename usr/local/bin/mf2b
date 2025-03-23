@@ -1,0 +1,165 @@
+#!/bin/bash
+
+# Configuration
+declare -A LOG_FILES_REGEX
+LOG_FILES_REGEX["/var/log/auth.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+
+NFT_SET_NAME="banned_ips"
+BAN_DURATION=86400
+MAX_ATTEMPTS=5
+TIME_WINDOW=7200
+BAN_LOG="/var/log/ip_ban.log"
+LOCK_FILE="/run/lock/mf2b.lock"
+TRACKER_FILE="/etc/mf2b/mf2b_tracker"
+
+declare -A IP_TRACKER
+
+# Vérification des privilèges root
+if [[ $EUID -ne 0 ]]; then
+    echo "Ce script doit être exécuté en root" >&2
+    exit 1
+fi
+
+# Nouvelle fonction pour débannir une IP
+unban_ip() {
+    local ip=$1
+    if [ -z "$ip" ]; then
+        echo "Erreur: Vous devez spécifier une adresse IP à débannir."
+        echo "Usage: $0 -u <adresse_ip>"
+        exit 1
+    fi
+    if nft list set inet filter $NFT_SET_NAME | grep -q "$ip"; then
+        nft delete element inet filter $NFT_SET_NAME "{ $ip }"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - UNBANNED: $ip" >> "$BAN_LOG"
+        echo "IP $ip débannie avec succès."
+    else
+        echo "L'IP $ip n'est pas dans la liste des IP bannies."
+    fi
+    exit 0
+}
+
+# Reconstruction de la structure de base de nftables
+rebuild_nftables() {
+    echo "Reconstruire la structure de base de nftables..."
+    nft flush ruleset
+    nft add table inet filter
+    nft add set inet filter $NFT_SET_NAME "{ type ipv4_addr; timeout ${BAN_DURATION}s; }"
+    nft add chain inet filter input "{ type filter hook input priority 0; }"
+    nft insert rule inet filter input "ip saddr @$NFT_SET_NAME drop"
+    echo "Structure de base de nftables reconstruite avec succès."
+    exit 0
+}
+
+# Configuration NFTables
+setup_nft() {
+    nft list tables | grep -q "filter" || nft add table inet filter
+    nft list set inet filter $NFT_SET_NAME &>/dev/null || {
+        nft add set inet filter $NFT_SET_NAME "{ type ipv4_addr; timeout ${BAN_DURATION}s; }"
+    }
+    nft list chain inet filter input &>/dev/null || {
+        nft add chain inet filter input "{ type filter hook input priority 0; }"
+        nft insert rule inet filter input "ip saddr @$NFT_SET_NAME drop"
+    }
+}
+
+# Gestion du verrou
+lock() {
+    exec 9>"$LOCK_FILE"
+    flock -x 9
+}
+
+unlock() {
+    flock -u 9
+    exec 9>&-
+}
+
+# Bannissement d'IP
+ban_ip() {
+    local ip=$1
+    local log=$2
+    local entry=$3
+    
+    if ! nft list set inet filter $NFT_SET_NAME | grep -q "$ip"; then
+        nft add element inet filter $NFT_SET_NAME "{ $ip }"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - BANNED: $ip - Log: $log - Entry: $entry" >> "$BAN_LOG"
+    fi
+}
+
+# Gestion des logs
+analyze_logs() {
+    local pids=()
+    for logfile in "${!LOG_FILES_REGEX[@]}"; do
+        regex="${LOG_FILES_REGEX[$logfile]}"
+        tail -Fn0 "$logfile" | while read -r line; do
+            if [[ $line =~ $regex ]]; then
+                ip="${BASH_REMATCH[2]}"
+                current=$(date +%s)
+                
+                lock
+                
+                # Mise à jour des tentatives
+                echo "$ip $current" >> "$TRACKER_FILE"
+                new_timestamps=($(awk -v ip="$ip" -v time_window="$TIME_WINDOW" -v current="$current" '$1 == ip && (current - $2) <= time_window { print $2 }' "$TRACKER_FILE"))
+                
+                # Vérification du nombre de tentatives
+                if (( ${#new_timestamps[@]} >= MAX_ATTEMPTS )); then
+                    ban_ip "$ip" "$logfile" "$line"
+                    sed -i "/^$ip /d" "$TRACKER_FILE"
+                fi
+                
+                unlock
+            fi
+        done &
+        pids+=($!)
+    done
+    
+    # Gestion des processus en arrière-plan
+    trap "cleanup ${pids[@]}" SIGTERM SIGINT
+}
+
+# Aide 
+show_help() {
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help                Affiche cette aide et quitte."
+    echo "  -n, --nftables-rebuild    Reconstruit la structure de base de nftables attendue par mf2b."
+    echo "  -u, --unban IP            Débannit l'IP spécifiée."
+    exit 0
+}
+
+# Nettoyage
+touch "$LOCK_FILE"
+cleanup() {
+    echo "Arrêt du service..."
+    for pid in "$@"; do
+        kill "$pid" 2>/dev/null
+    done
+    exit 0
+}
+
+# Analyse des arguments de la ligne de commande
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help ;;
+        -n|--nftables-rebuild)
+            rebuild_nftables ;;
+        -u|--unban)
+            shift
+            if [ -z "$1" ]; then
+                echo "Erreur: Vous devez spécifier une adresse IP à débannir."
+                echo "Usage: $0 -u <adresse_ip>"
+                exit 1
+            fi
+            unban_ip "$1" ;;
+        *)
+            echo "Option inconnue: $1"
+            show_help ;;
+    esac
+    shift
+done
+
+setup_nft
+analyze_logs
+wait

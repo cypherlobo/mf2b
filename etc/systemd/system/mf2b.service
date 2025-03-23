@@ -1,0 +1,14 @@
+[Unit]
+Description=Mini Fail2Ban - Monitor de logs y bloqueo de IPs
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/mf2b
+Restart=always
+User=root
+ProtectSystem=strict
+NoNewPrivileges=true
+ReadWritePaths=/run/lock /etc/mf2b /var/log 
+
+[Install]
+WantedBy=multi-user.target
