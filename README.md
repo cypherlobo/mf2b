@@ -32,17 +32,6 @@ Le script utilise plusieurs variables de configuration :
 - `LOCK_FILE` : Fichier de verrouillage
 - `TRACKER_FILE` : Fichier de suivi des tentatives
 
-## Utilisation
-
-```bash
-sudo mf2b [options]
-```
-
-Options :
-- `-h, --help` : Affiche l'aide
-- `-n, --nftables-rebuild` : Reconstruit la structure de base de nftables
-- `-u, --unban IP` : Débannit l'adresse IP spécifiée
-
 ## Prérequis
 
 - Bash
@@ -95,6 +84,18 @@ sudo systemctl enable --now mf2b
 sudo systemctl status mf2b
 ```
 
+## Utilisation
+
+```bash
+sudo mf2b [options]
+```
+
+Options :
+- `-h, --help` : Affiche l'aide
+- `-n, --nftables-rebuild` : Reconstruit la structure de base de nftables
+- `-u, --unban IP` : Débannit l'adresse IP spécifiée
+
+
 ## Fonctionnement
 
 Le script surveille en continu les fichiers de logs spécifiés. Lorsqu'une tentative d'authentification échouée est détectée, l'adresse IP est enregistrée. Si le nombre de tentatives dépasse le seuil défini dans la fenêtre de temps spécifiée, l'IP est automatiquement bannie via nftables.
@@ -103,6 +104,14 @@ Le script surveille en continu les fichiers de logs spécifiés. Lorsqu'une tent
 
 - Le script doit être exécuté avec des privilèges root
 - Utilise des verrous pour éviter les conflits d'accès aux fichiers partagés
+
+## Ajout des regles de Regex et l'analyse des logs:
+Pour ajouter les analyses de logs et des regles
+1. Modifier le fichier `/usr/local/bin/mf2b`
+2. Ajouter la ligne qui corresponde a celle ci:
+```sh
+LOG_FILES_REGEX["/path/to/file.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+```
 
 ## Logs
 
