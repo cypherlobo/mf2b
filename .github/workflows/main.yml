@@ -1,0 +1,48 @@
+name: Build and Release Debian Package
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write  
+
+env:
+  MF2B_VERSION: 1.0  # Changez cette variable pour mettre à jour la version
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Debian package build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+
+      - name: Build Debian package
+        run: |
+          mkdir -p build/mf2b
+          cp -R DEBIAN etc usr README.md build/mf2b/
+          cd build
+          dpkg-deb --build mf2b
+
+      - name: Rename package with version
+        run: |
+          cd build
+          mv mf2b.deb mf2b-v${{ env.MF2B_VERSION }}.deb
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2  # Mise à jour vers la dernière version de l'action
+        with:
+          tag_name: v${{ env.MF2B_VERSION }}
+          name: Release v${{ env.MF2B_VERSION }}
+          files: build/mf2b-v${{ env.MF2B_VERSION }}.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
