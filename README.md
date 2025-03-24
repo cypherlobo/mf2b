@@ -1,7 +1,6 @@
 <img alt="mf2b-logo" align="left" width="300" height="300" src="https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/hh.png">
-<h1>Blackbird</h1>
+<h1>MF2B | Mini-Fail2Ban</h1>
 
-# MF2B | Mini-Fail2Ban
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=102)](https://github.com/cypherlobo?tab=repositories)
 
 [Version : 1.0]
