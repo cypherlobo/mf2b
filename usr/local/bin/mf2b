@@ -16,7 +16,7 @@ declare -A IP_TRACKER
 
 # Vérification des privilèges root
 if [[ $EUID -ne 0 ]]; then
-    echo "Ce script doit être exécuté en root" >&2
+    echo "This script must be run as root." >&2
     exit 1
 fi
 
@@ -24,29 +24,38 @@ fi
 unban_ip() {
     local ip=$1
     if [ -z "$ip" ]; then
-        echo "Erreur: Vous devez spécifier une adresse IP à débannir."
-        echo "Usage: $0 -u <adresse_ip>"
+        echo "Error: You must specify an IP address to unban."
+        echo "Usage: $0 -u <ip_address>"
         exit 1
     fi
     if nft list set inet filter $NFT_SET_NAME | grep -q "$ip"; then
         nft delete element inet filter $NFT_SET_NAME "{ $ip }"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - UNBANNED: $ip" >> "$BAN_LOG"
-        echo "IP $ip débannie avec succès."
+        echo "IP $ip successfully unbanned."
     else
-        echo "L'IP $ip n'est pas dans la liste des IP bannies."
+        echo "The IP $ip is not in the list of banned IPs."
     fi
+    exit 0
+}
+
+# Nouvelle fonction pour lister les IP bannies
+list_banned_ips() {
+    echo "List of currently banned IPs:"
+    nft list set inet filter $NFT_SET_NAME | grep -oP '([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' || {
+        echo "No IP is currently banned."
+    }
     exit 0
 }
 
 # Reconstruction de la structure de base de nftables
 rebuild_nftables() {
-    echo "Reconstruire la structure de base de nftables..."
+    echo "Rebuilding the basic nftables structure..."
     nft flush ruleset
     nft add table inet filter
     nft add set inet filter $NFT_SET_NAME "{ type ipv4_addr; timeout ${BAN_DURATION}s; }"
     nft add chain inet filter input "{ type filter hook input priority 0; }"
     nft insert rule inet filter input "ip saddr @$NFT_SET_NAME drop"
-    echo "Structure de base de nftables reconstruite avec succès."
+    echo "Basic nftables structure successfully rebuilt."
     exit 0
 }
 
@@ -122,16 +131,18 @@ show_help() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -h, --help                Affiche cette aide et quitte."
-    echo "  -n, --nftables-rebuild    Reconstruit la structure de base de nftables attendue par mf2b."
-    echo "  -u, --unban IP            Débannit l'IP spécifiée."
+    echo "  -h, --help                Displays this help and exits."
+    echo "  -n, --nftables-rebuild    Rebuilds the basic nftables structure expected by mf2b."
+    echo "  -u, --unban IP            Unbans the specified IP."
+    echo "  -l, --list-banned         Displays the currently banned IPs."
     exit 0
 }
+
 
 # Nettoyage
 touch "$LOCK_FILE"
 cleanup() {
-    echo "Arrêt du service..."
+    echo "Stopping the service..."
     for pid in "$@"; do
         kill "$pid" 2>/dev/null
     done
@@ -148,18 +159,22 @@ while [[ $# -gt 0 ]]; do
         -u|--unban)
             shift
             if [ -z "$1" ]; then
-                echo "Erreur: Vous devez spécifier une adresse IP à débannir."
-                echo "Usage: $0 -u <adresse_ip>"
+                echo "Error: You must specify an IP address to unban."
+                echo "Usage: $0 -u <IP_address>"
                 exit 1
             fi
             unban_ip "$1" ;;
+        -l|--list-banned)
+            list_banned_ips ;;
         *)
-            echo "Option inconnue: $1"
+            echo "Unknown option: $1"
             show_help ;;
     esac
     shift
 done
 
+
 setup_nft
 analyze_logs
 wait
+
