@@ -1,4 +1,4 @@
-<img alt="mf2b-logo" align="left" width="300" height="300" src="https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/hh.png"> <h1>MF2B | Mini-Fail2Ban</h1>
+<img alt="mf2b-logo" align="left" width="300" height="300" src="https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/hh.png">
 
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=102)](https://github.com/cypherlobo?tab=repositories)
 
@@ -10,7 +10,7 @@
 
 
 
-
+## MF2B | Mini-Fail2Ban
 
 MF2B est un script bash conçu pour surveiller les fichiers de logs système, détecter les tentatives d'authentification échouées, et bannir automatiquement les adresses IP suspectes en utilisant nftables.
 
