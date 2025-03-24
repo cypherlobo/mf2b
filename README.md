@@ -111,6 +111,7 @@ Pour ajouter les analyses de logs et des regles
 2. Ajouter la ligne qui corresponde a celle ci:
 ```sh
 LOG_FILES_REGEX["/path/to/file.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+LOG_FILES_REGEX["/path/to/file.log"]="*REGEX*" 
 ```
 
 ## Logs
