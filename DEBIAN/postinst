@@ -16,39 +16,39 @@ whiptail --msgbox "\n	 ██████   ██████ █████�
 	[*] Mini-Fail2Ban by H4X0R-T34M (Yann-Adam)" 20 70
 # Vérifier si Whiptail est installé
 if ! command -v whiptail &>/dev/null; then
-    echo "[!] Whiptail n'est pas installé. Installation en cours..."
+    echo "[!] Whiptail is not installed. Installing now..."
     apt-get update && apt-get install -y whiptail
 fi
 
 # Vérification du dossier mf2b
 if [ -d "/etc/mf2b/" ]; then
     rm -rf /etc/mf2b/
-    echo "[+] Dossier /etc/mf2b/ supprimé."
+    echo "[+] Directory /etc/mf2b/ deleted."
 fi
 
 # Demander à l'utilisateur s'il veut configurer mf2b
-if whiptail --yesno "Voulez-vous configurer les paramètres de mf2b maintenant ?" 10 60; then
+if whiptail --yesno "Do you want to configure mf2b settings now?" 10 60; then
 
     # Fonction pour demander des valeurs
     ask_config() {
         local prompt="$1"
         local default="$2"
-        whiptail --inputbox "$prompt" 10 60 "$default" --title "Configuration de mf2b" 3>&1 1>&2 2>&3
+        whiptail --inputbox "$prompt" 10 60 "$default" --title "mf2b configuration" 3>&1 1>&2 2>&3
     }
 
     # Demander les valeurs à l'utilisateur
-    BAN_DURATION=$(ask_config "Durée du bannissement en secondes (ex: 86400 pour 24h) :" "86400")
-    MAX_ATTEMPTS=$(ask_config "Nombre de tentatives avant bannissement :" "5")
-    TIME_WINDOW=$(ask_config "Fenêtre de temps en secondes pour comptabiliser les erreurs (ex: 7200 pour 2h) :" "7200")
+    BAN_DURATION=$(ask_config "Ban duration in seconds (e.g., 86400 for 24h) :" "86400")
+    MAX_ATTEMPTS=$(ask_config "Number of attempts before banning :" "5")
+    TIME_WINDOW=$(ask_config "Time window in seconds to count errors (e.g., 7200 for 2h) :" "7200")
 
     # Mettre à jour le script avec les nouvelles valeurs
     sed -i "s/^BAN_DURATION=.*/BAN_DURATION=$BAN_DURATION/" "$SCRIPT_PATH"
     sed -i "s/^MAX_ATTEMPTS=.*/MAX_ATTEMPTS=$MAX_ATTEMPTS/" "$SCRIPT_PATH"
     sed -i "s/^TIME_WINDOW=.*/TIME_WINDOW=$TIME_WINDOW/" "$SCRIPT_PATH"
 
-    echo "[+] Configuration appliquée."
+    echo "[+] Configuration applied."
 else
-    echo "[+] La configuration par défaut sera utilisée."
+    echo "[+] The default configuration will be used."
 fi
 
 # Rendre le script exécutable
@@ -67,7 +67,7 @@ chmod 755 /var/log/ip_ban.log
 if [ ! -f "$SERVICE_PATH" ]; then
     cat > "$SERVICE_PATH" <<EOL
 [Unit]
-Description=Mini Fail2Ban - Surveillance des logs et blocage des IPs
+Description=Mini Fail2Ban - Log monitoring and IP blocking
 After=network.target
 
 [Service]
@@ -85,4 +85,4 @@ systemctl daemon-reload
 systemctl enable mf2b
 systemctl restart mf2b
 
-echo "[+] Installation terminée et service activé."
+echo "[+] Installation completed and service activated."
