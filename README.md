@@ -110,8 +110,8 @@ Pour ajouter les analyses de logs et des regles
 1. Modifier le fichier `/usr/local/bin/mf2b`
 2. Ajouter la ligne qui corresponde a celle ci:
 ```sh
-LOG_FILES_REGEX["/path/to/file.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
 LOG_FILES_REGEX["/path/to/file.log"]="*REGEX*" 
+LOG_FILES_REGEX["/path/to/file.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
 ```
 
 ## Logs
