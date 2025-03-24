@@ -1,4 +1,6 @@
-![mf2b](https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/hh.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/cypherlobo/mf2b/refs/heads/main/assets/hh.png" width="400">
+</p>
 
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=102)](https://github.com/cypherlobo?tab=repositories)
 
