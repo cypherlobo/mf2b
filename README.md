@@ -1,4 +1,4 @@
-# MF2B - Mini Fail 2 Ban
+# MF2B | Mini-Fail2Ban
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=102)](https://github.com/cypherlobo?tab=repositories)
 
 
