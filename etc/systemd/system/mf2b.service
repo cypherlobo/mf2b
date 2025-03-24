@@ -1,5 +1,5 @@
 [Unit]
-Description=Mini Fail2Ban - Monitor de logs y bloqueo de IPs
+Description=Mini Fail2Ban - Monitoring and Block IP
 After=network.target
 
 [Service]
