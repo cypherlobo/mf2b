@@ -1,18 +1,27 @@
 #!/bin/bash
 
+##--------------
 # Configuration
+
 declare -A LOG_FILES_REGEX
-LOG_FILES_REGEX["/var/log/auth.log"]="(Failed password|authentication failure|password check failed).*? from ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+# Exemples de mise en place de nouvelles règles :
+# LOG_FILES_REGEX["/path/to/log.log"]="REGEX1"
+# LOG_FILES_REGEX["/path/to/log.log"]="REGEX1;REGEX2"
+LOG_FILES_REGEX["/var/log/auth.log"]="(Failed password|authentication failure|password check failed).*? from [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+;Failed password.*? [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
+LOG_FILES_REGEX["/var/log/apache2/error.log"]="\[client [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+\] script '\/var\/www\/html\/.+\..+' not found or unable to stat"
 
 NFT_SET_NAME="banned_ips"
-BAN_DURATION=86400
-MAX_ATTEMPTS=5
-TIME_WINDOW=7200
+BAN_DURATION=86400               # Durée d'un ban pour une IP
+MAX_ATTEMPTS=5                   # Nombre maximum de tentatives avant ban
+TIME_WINDOW=7200                 # Fenêtre de tentatives d'échec
 BAN_LOG="/var/log/ip_ban.log"
 LOCK_FILE="/run/lock/mf2b.lock"
 TRACKER_FILE="/etc/mf2b/mf2b_tracker"
 
 declare -A IP_TRACKER
+
+##--------------
+# Fonctions
 
 # Vérification des privilèges root
 if [[ $EUID -ne 0 ]]; then
@@ -20,14 +29,18 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# Nouvelle fonction pour débannir une IP
 unban_ip() {
+    # Fonction pour débannir une ip manuellement
     local ip=$1
+
+    # erreur si pas d'ip
     if [ -z "$ip" ]; then
         echo "Error: You must specify an IP address to unban."
         echo "Usage: $0 -u <ip_address>"
         exit 1
     fi
+
+    # bloque de ban, sauf si ip pas présent dans NFTables
     if nft list set inet filter $NFT_SET_NAME | grep -q "$ip"; then
         nft delete element inet filter $NFT_SET_NAME "{ $ip }"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - UNBANNED: $ip" >> "$BAN_LOG"
@@ -38,17 +51,17 @@ unban_ip() {
     exit 0
 }
 
-# Nouvelle fonction pour lister les IP bannies
 list_banned_ips() {
+    # Fonction pour lister les IP bannies
     echo "List of currently banned IPs:"
-    nft list set inet filter $NFT_SET_NAME | grep -oP '([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' || {
+    nft list set inet filter $NFT_SET_NAME || {
         echo "No IP is currently banned."
     }
     exit 0
 }
 
-# Reconstruction de la structure de base de nftables
 rebuild_nftables() {
+    # Reconstruit la structure de base de NFTables | reset à 0
     echo "Rebuilding the basic nftables structure..."
     nft flush ruleset
     nft add table inet filter
@@ -59,8 +72,8 @@ rebuild_nftables() {
     exit 0
 }
 
-# Configuration NFTables
 setup_nft() {
+    # Configuration NFTables
     nft list tables | grep -q "filter" || nft add table inet filter
     nft list set inet filter $NFT_SET_NAME &>/dev/null || {
         nft add set inet filter $NFT_SET_NAME "{ type ipv4_addr; timeout ${BAN_DURATION}s; }"
@@ -71,63 +84,55 @@ setup_nft() {
     }
 }
 
-# Gestion du verrou
-lock() {
-    exec 9>"$LOCK_FILE"
-    flock -x 9
-}
-
-unlock() {
-    flock -u 9
-    exec 9>&-
-}
-
-# Bannissement d'IP
 ban_ip() {
+    # Fonction pour ban les IPs
     local ip=$1
     local log=$2
     local entry=$3
     
+
     if ! nft list set inet filter $NFT_SET_NAME | grep -q "$ip"; then
         nft add element inet filter $NFT_SET_NAME "{ $ip }"
         echo "$(date '+%Y-%m-%d %H:%M:%S') - BANNED: $ip - Log: $log - Entry: $entry" >> "$BAN_LOG"
     fi
 }
 
-# Gestion des logs
 analyze_logs() {
-    local pids=()
-    for logfile in "${!LOG_FILES_REGEX[@]}"; do
-        regex="${LOG_FILES_REGEX[$logfile]}"
-        tail -Fn0 "$logfile" | while read -r line; do
-            if [[ $line =~ $regex ]]; then
-                ip="${BASH_REMATCH[2]}"
-                current=$(date +%s)
-                
-                lock
-                
-                # Mise à jour des tentatives
-                echo "$ip $current" >> "$TRACKER_FILE"
-                new_timestamps=($(awk -v ip="$ip" -v time_window="$TIME_WINDOW" -v current="$current" '$1 == ip && (current - $2) <= time_window { print $2 }' "$TRACKER_FILE"))
-                
-                # Vérification du nombre de tentatives
-                if (( ${#new_timestamps[@]} >= MAX_ATTEMPTS )); then
-                    ban_ip "$ip" "$logfile" "$line"
-                    sed -i "/^$ip /d" "$TRACKER_FILE"
+    # Fonction qui lance des sous process pour surveiller les logs
+    local pids=() # sert à stocker les PID des sous process 
+    for logfile in "${!LOG_FILES_REGEX[@]}"; do # Récupère les fichiers logs différents 
+        IFS=";" read -r -a regexs <<< "${LOG_FILES_REGEX[$logfile]}" # transforme "Regex1;Regex2" en une liste de plusieurs regex séparés
+        tail -Fn0 "$logfile" | while read -r line; do # Lance le sous process qui lit le fichier log
+            for regex in "${regexs[@]}"; do # Check chaque regex lié à ce fichier log 
+                if [[ $line =~ $regex ]]; then # Check si le regex en cours correspond à la ligne de log analysée
+                    ip=$(echo "$line" | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+") # Récupère l'ip dans la ligne de log
+
+                    # Bloque pour compter le nombre d'echec à la suite en prenant en compte la fenêtre d'essai
+                    if [[ -n "$ip" ]]; then
+                        current=$(date +%s)
+                        
+                        # Mise à jour des tentatives si fenêtre d'échec expirée ou non existante
+                        echo "$ip $current" >> "$TRACKER_FILE"
+                        new_timestamps=($(awk -v ip="$ip" -v time_window="$TIME_WINDOW" -v current="$current" '$1 == ip && (current - $2) <= time_window { print $2 }' "$TRACKER_FILE"))
+                        
+                        # Vérification du nombre de tentatives
+                        if (( ${#new_timestamps[@]} >= MAX_ATTEMPTS )); then
+                            ban_ip "$ip" "$logfile" "$line"
+                            sed -i "/^$ip /d" "$TRACKER_FILE"
+                        fi
+                    fi
                 fi
-                
-                unlock
-            fi
+            done
         done &
         pids+=($!)
     done
     
     # Gestion des processus en arrière-plan
-    trap "cleanup ${pids[@]}" SIGTERM SIGINT
+    trap 'kill -s SIGSTOP ${pids[@]}' EXIT
 }
 
-# Aide 
 show_help() {
+    # Fonction pour afficher l'aide
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
@@ -138,10 +143,8 @@ show_help() {
     exit 0
 }
 
-
-# Nettoyage
-touch "$LOCK_FILE"
 cleanup() {
+    # Fonction pour nettoyer les sous process
     echo "Stopping the service..."
     for pid in "$@"; do
         kill "$pid" 2>/dev/null
@@ -149,11 +152,18 @@ cleanup() {
     exit 0
 }
 
+##--------------
+# Main
+
+touch "$LOCK_FILE"
+
 # Analyse des arguments de la ligne de commande
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
             show_help ;;
+        -c|--clean-up)
+            cleanup ;;
         -n|--nftables-rebuild)
             rebuild_nftables ;;
         -u|--unban)
@@ -173,8 +183,6 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-
 setup_nft
 analyze_logs
 wait
-
