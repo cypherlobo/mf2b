@@ -95,6 +95,7 @@ sudo mf2b [options]
 
 Options :
 - `-h, --help` : Affiche l'aide
+- `-l, --list` : Affiche les IP bannits
 - `-n, --nftables-rebuild` : Reconstruit la structure de base de nftables
 - `-u, --unban IP` : Débannit l'adresse IP spécifiée
 
