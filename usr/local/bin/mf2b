@@ -8,7 +8,7 @@ declare -A LOG_FILES_REGEX
 # LOG_FILES_REGEX["/path/to/log.log"]="REGEX1"
 # LOG_FILES_REGEX["/path/to/log.log"]="REGEX1;REGEX2"
 LOG_FILES_REGEX["/var/log/auth.log"]="(Failed password|authentication failure|password check failed).*? from [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+;Failed password.*? [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
-LOG_FILES_REGEX["/var/log/apache2/error.log"]="\[client [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+\] script '\/var\/www\/html\/.+\..+' not found or unable to stat"
+#LOG_FILES_REGEX["/var/log/apache2/error.log"]="\[client [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+\] script '\/var\/www\/html\/.+\..+' not found or unable to stat"
 
 NFT_SET_NAME="banned_ips"
 BAN_DURATION=86400               # Durée d'un ban pour une IP
