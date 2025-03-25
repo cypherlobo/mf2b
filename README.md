@@ -127,4 +127,6 @@ Les bannissements sont enregistrés dans le fichier spécifié par `BAN_LOG`.
 
 ## Avertissement
 
+- Attention dans les **regex**, ils doivent pas comporter **;**, puis qu'ils servent a separer differents **Regex**
+
 Assurez-vous de bien comprendre le fonctionnement du script avant de le déployer sur un système en production. Un mauvais paramétrage pourrait entraîner le bannissement d'adresses IP légitimes.
